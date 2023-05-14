@@ -1,49 +1,56 @@
 from pkg.plugin.models import *
 from pkg.plugin.host import EventContext, PluginHost
 
-"""
-在收到私聊或群聊消息"hello"时，回复"hello, <发送者id>!"或"hello, everyone!"
-"""
+import os
+import psutil
 
 
 # 注册插件
-@register(name="Hello", description="hello world", version="0.1", author="RockChinQ")
-class HelloPlugin(Plugin):
+@register(name="SysStat", description="查看系统状态", version="0.1", author="RockChinQ")
+class SysStatPlugin(Plugin):
 
     # 插件加载时触发
     # plugin_host (pkg.plugin.host.PluginHost) 提供了与主程序交互的一些方法，详细请查看其源码
     def __init__(self, plugin_host: PluginHost):
         pass
 
-    # 当收到个人消息时触发
-    @on(PersonNormalMessageReceived)
-    def person_normal_message_received(self, event: EventContext, **kwargs):
-        msg = kwargs['text_message']
-        if msg == "hello":  # 如果消息为hello
-
-            # 输出调试信息
-            logging.debug("hello, {}".format(kwargs['sender_id']))
-
-            # 回复消息 "hello, <发送者id>!"
-            event.add_return("reply", ["hello, {}!".format(kwargs['sender_id'])])
-
-            # 阻止该事件默认行为（向接口获取回复）
+    @on(GroupCommandSent)
+    @on(PersonCommandSent)
+    def command_send(self, host: PluginHost, event: EventContext, command: str, **kwargs):
+        if command == "sysstat" or command == "sys":
             event.prevent_default()
+            event.prevent_postorder()
 
-    # 当收到群消息时触发
-    @on(GroupNormalMessageReceived)
-    def group_normal_message_received(self, event: EventContext, **kwargs):
-        msg = kwargs['text_message']
-        if msg == "hello":  # 如果消息为hello
+            core_mem = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
+            sysmem_info = psutil.virtual_memory()
+            cpu_info = psutil.cpu_times
+            disk_info = psutil.disk_usage('/')
+            cpu_ststs = psutil.cpu_stats()
+            cpu_freq = psutil.cpu_freq()
+            
+            res = f"""====系统状态====
+进程内存占用: {core_mem:.2f}MB
+总内存: {sysmem_info.total / 1024 / 1024:.2f}MB
+已用内存: {sysmem_info.used / 1024 / 1024:.2f}MB
+空闲内存: {sysmem_info.free / 1024 / 1024:.2f}MB
+内存使用率: {sysmem_info.percent:.2f}%
+用户态CPU时间: {cpu_info().user:.2f}秒
+系统态CPU时间: {cpu_info().system:.2f}秒
+空闲CPU时间: {cpu_info().idle:.2f}秒
+CPU使用率: {psutil.cpu_percent(interval=1):.2f}%
+CPU逻辑核心数: {psutil.cpu_count()}
+CPU物理核心数: {psutil.cpu_count(logical=False)}
+CPU当前频率: {cpu_freq.current:.2f}MHz
+总磁盘空间: {disk_info.total / 1024 / 1024 / 1024:.2f}GB
+已用磁盘空间: {disk_info.used / 1024 / 1024 / 1024:.2f}GB
+空闲磁盘空间: {disk_info.free / 1024 / 1024 / 1024:.2f}GB
+磁盘使用率: {disk_info.percent:.2f}%
+============"""
 
-            # 输出调试信息
-            logging.debug("hello, {}".format(kwargs['sender_id']))
-
-            # 回复消息 "hello, everyone!"
-            event.add_return("reply", ["hello, everyone!"])
-
-            # 阻止该事件默认行为（向接口获取回复）
-            event.prevent_default()
+            event.add_return(
+                "reply",
+                [res.strip()]
+            )
 
     # 插件卸载时触发
     def __del__(self):
