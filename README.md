@@ -1,4 +1,4 @@
-# HelloPlugin
+# System Status Plugin
 
 [QChatGPT](https://github.com/RockChinQ/QChatGPT) 项目的系统状态插件  
 
